@@ -1,0 +1,151 @@
+---
+title: "Statistical Learning"
+author: "Mia Isaacs"
+date: "2024-11-21"
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+library(glmnet)
+
+set.seed(10)
+```
+
+## try some lassoing!!
+
+load and clean birthweight datset 
+
+```{r}
+bwt_df = 
+  read_csv("data/birthweight.csv") |> 
+  janitor::clean_names() |>
+  mutate(
+    babysex = 
+        case_match(babysex,
+            1 ~ "male",
+            2 ~ "female"
+        ),
+    babysex = fct_infreq(babysex),
+    frace = 
+        case_match(frace,
+            1 ~ "white",
+            2 ~ "black", 
+            3 ~ "asian", 
+            4 ~ "puerto rican", 
+            8 ~ "other"),
+    frace = fct_infreq(frace),
+    mrace = 
+        case_match(mrace,
+            1 ~ "white",
+            2 ~ "black", 
+            3 ~ "asian", 
+            4 ~ "puerto rican",
+            8 ~ "other"),
+    mrace = fct_infreq(mrace),
+    malform = as.logical(malform)) |> 
+  sample_n(200)
+```
+
+construct inputs for 'glmnet'
+
+```{r}
+x = model.matrix(bwt ~ ., data = bwt_df)[, -1]
+y = bwt_df |> pull(bwt)
+```
+
+fit lasso for several lambdas
+
+```{r}
+lambda = 10^seq(-2, 2.75, by = 0.1)
+
+lasso_fit =
+  glmnet(x = x, y = y, lambda = lambda)
+
+lasso_cv =
+  cv.glmnet(x, y, lambda = lambda)
+
+lambda_opt = lasso_cv[["lambda.min"]]
+```
+
+usual lasso plot
+
+```{r}
+lasso_fit |> 
+  broom::tidy() |> 
+  select(term, lambda, estimate) |> 
+  complete(term, lambda, fill = list(estimate = 0) ) |> 
+  filter(term != "(Intercept)") |> 
+  ggplot(aes(x = lambda, y = estimate, group = term, color = term)) + 
+  geom_path() + 
+  geom_vline(xintercept = lambda_opt, color = "blue", size = 1.2) +
+  theme(legend.position = "none")
+```
+
+```{r}
+lasso_cv |> 
+  broom::tidy() |> 
+  ggplot(aes(x = log(lambda, 10), y = estimate)) + 
+  geom_point()
+```
+
+```{r}
+lasso_fit = 
+  glmnet(x, y, lambda = lambda_opt)
+
+lasso_fit |> broom::tidy()
+```
+
+## clustering pokemon
+
+```{r}
+poke_df = 
+  read_csv("data/pokemon.csv") |> 
+  janitor::clean_names() |> 
+  select(hp, speed)
+```
+
+```{r}
+poke_df |> 
+  ggplot(aes(x = hp, y = speed)) + 
+  geom_point()
+```
+
+```{r}
+kmeans_fit =
+  kmeans(x = poke_df, centers = 3)
+```
+
+```{r}
+poke_df =
+  broom::augment(kmeans_fit, poke_df)
+
+poke_df |> 
+  ggplot(aes(x = hp, y = speed, color = .cluster)) +
+  geom_point()
+```
+
+```{r}
+clusts =
+  tibble(k = 2:4) |>
+  mutate(
+    km_fit =    map(k, \(n_clust) kmeans(poke_df, centers = n_clust)),
+    augmented = map(km_fit, \(fit) broom::augment(x = fit, poke_df))
+  )
+
+clusts |> 
+  select(-km_fit) |> 
+  unnest(augmented) |> 
+  ggplot(aes(hp, speed, color = .cluster)) +
+  geom_point(aes(color = .cluster)) +
+  facet_grid(~k)
+```
+
+
+
+
+
+
+
+
+
