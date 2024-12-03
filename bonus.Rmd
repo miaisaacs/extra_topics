@@ -1,0 +1,37 @@
+---
+title: "New RMD"
+author: "Mia Isaacs"
+date: "2024-12-03"
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+## using the here package
+
+```{r}
+nhanes_covar = read_csv(here::here("data", "nhanes_covar.csv"))
+```
+
+easier to use in complex analyses with multiple Rmd files
+
+## always use regression
+
+```{r}
+with(mtcars, t.test(mpg[am == 0], mpg[am == 1])) |> 
+  broom::tidy()
+
+t.test(mpg ~ am, data = mtcars) |> 
+  broom::tidy()
+
+lm(mpg ~ am, data = mtcars) |> 
+  broom::tidy()
+```
+
+
+
+
+
+
